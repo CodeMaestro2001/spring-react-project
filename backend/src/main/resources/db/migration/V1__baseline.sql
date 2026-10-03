@@ -1,0 +1,4 @@
+CREATE TABLE item (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(255)
+);
