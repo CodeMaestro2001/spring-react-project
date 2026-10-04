@@ -21,7 +21,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-supplycart}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - supplycart-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -42,10 +42,11 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
     ports:
-      - "${API_PORT:-8081}:8081"
+      - "127.0.0.1:${API_PORT:-8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,7 +65,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
     depends_on:
       api:
         condition: service_healthy

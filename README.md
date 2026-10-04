@@ -43,6 +43,37 @@ Stop the services without deleting database data with:
 docker compose --env-file .env -f infra/compose.yaml down
 ```
 
+## Deploy to a VPS with Nginx Proxy Manager
+
+The production Compose override joins the web container to the existing Docker network named `proxy`, where Nginx Proxy Manager can reach it as `supplycart-web:80`. PostgreSQL, Redis and the API have no published host ports. HTTPS terminates at Nginx Proxy Manager.
+
+On the VPS, create `.env` from `.env.example`. Set a unique database password, the administrator email and a unique 12–72 character administrator password. Keep `.env` private. From the repository root, start the production stack with:
+
+```sh
+docker compose --env-file .env -f infra/compose.yaml -f infra/compose.npm.yaml up --build -d
+```
+
+In Nginx Proxy Manager, add only the app hostname as a Proxy Host. Use scheme `http`, forward hostname `supplycart-web`, and port `80`. Request a Let's Encrypt certificate in the SSL tab, enable Force SSL, and save. The DNS `A` record must point the app hostname to the VPS, and ports 80 and 443 must reach Nginx Proxy Manager.
+
+Check the stack with:
+
+```sh
+docker compose --env-file .env -f infra/compose.yaml -f infra/compose.npm.yaml ps
+```
+
+The app's database and Redis data persist in Docker volumes when containers stop.
+
+### Automatic deployment from GitHub
+
+The `main` branch deploys automatically after all CI checks pass. In the repository's **Settings → Secrets and variables → Actions**, add these repository secrets:
+
+- `DEPLOY_HOST`: the VPS IP or hostname.
+- `DEPLOY_USER`: an SSH deployment account that can write to `/opt/supplycart` and run Docker Compose. Prefer a dedicated account instead of `root`.
+- `DEPLOY_SSH_KEY`: that account's private SSH key (never commit or share it in chat).
+- `DEPLOY_KNOWN_HOSTS`: the verified SSH host-key line for the VPS, matching the value in `DEPLOY_HOST`.
+
+The workflow syncs tracked application files to `/opt/supplycart`, deliberately preserves the VPS `.env`, and rebuilds/restarts only the Compose project named `supplycart`. It does not remove Docker volumes, so PostgreSQL and Redis data remain. Configure the secrets before pushing to `main`; pushes to other branches and pull requests run CI only.
+
 ## Customer authentication
 
 Use the account panel in the frontend to create a customer account and sign in. Registration requires a name, email and password of at least 12 characters. New accounts are always assigned the `CUSTOMER` role; the public registration API cannot grant administrator access.
@@ -138,4 +169,4 @@ GitHub Actions runs backend verification, frontend typecheck/build, Compose conf
 
 ## Current scope and limitations
 
-Payment, shipping, Kafka, AI integration and cloud deployment are not implemented yet. Account email verification and password recovery are deferred. There are no real payments or production credentials.
+Payment, shipping, Kafka and AI integration are not implemented yet. Account email verification and password recovery are deferred. There are no real payments or production credentials.

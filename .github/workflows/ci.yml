@@ -9,7 +9,8 @@ permissions:
 
 concurrency:
   group: supplycart-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Do not interrupt an in-progress production rollout when another push arrives.
+  cancel-in-progress: false
 
 jobs:
   backend:
@@ -61,3 +62,53 @@ jobs:
       - name: Stop stack and remove its temporary database volume
         if: always()
         run: docker compose --env-file .env.example -f infra/compose.yaml down --volumes
+
+  deploy:
+    name: Deploy to Contabo VPS
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY" || { echo "Missing DEPLOY_SSH_KEY secret"; exit 1; }
+          test -n "$DEPLOY_KNOWN_HOSTS" || { echo "Missing DEPLOY_KNOWN_HOSTS secret"; exit 1; }
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Copy application source to VPS
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          test -n "$DEPLOY_HOST" || { echo "Missing DEPLOY_HOST secret"; exit 1; }
+          test -n "$DEPLOY_USER" || { echo "Missing DEPLOY_USER secret"; exit 1; }
+          rsync -az --delete \
+            --exclude='.env' \
+            --exclude='.git/' \
+            --exclude='frontend/node_modules/' \
+            --exclude='backend/target/' \
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:/opt/supplycart/"
+
+      - name: Rebuild and restart SupplyCart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" '
+            docker compose -p supplycart \
+              --project-directory /opt/supplycart/infra \
+              --env-file /opt/supplycart/.env \
+              -f /opt/supplycart/infra/compose.yaml \
+              -f /opt/supplycart/infra/compose.npm.yaml \
+              up --build -d
+          '
