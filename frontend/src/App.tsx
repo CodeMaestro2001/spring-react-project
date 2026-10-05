@@ -179,17 +179,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!currentUser) {
-      setProducts([])
-      setCategories([])
-      return
-    }
-
     const controller = new AbortController()
     const parameters = new URLSearchParams({ page: String(catalogPage), size: '12' })
     if (catalogQuery.trim()) parameters.set('q', catalogQuery.trim())
     if (selectedCategory) parameters.set('category', selectedCategory)
-    const productsPath = currentUser.role === 'ADMIN' ? '/api/admin/products' : '/api/products'
+    const productsPath = currentUser?.role === 'ADMIN' ? '/api/admin/products' : '/api/products'
 
     setCatalogLoading(true)
     setCatalogError('')
@@ -538,7 +532,7 @@ export default function App() {
                 <h1 id="home-title">A better way to keep your kitchen stocked.</h1>
                 <p className="hero-description">Find the products your team relies on, place orders with confidence, and keep everything in one clear workspace.</p>
                 <div className="hero-actions">
-                  <a className="primary-button" href={currentUser ? '/catalog' : '/signup'}>{currentUser ? 'Browse catalog' : 'Create an account'} <span aria-hidden="true">→</span></a>
+                  <a className="primary-button" href="/catalog">Browse catalog <span aria-hidden="true">→</span></a>
                   <a className="link-button" href={currentUser ? '/orders' : '/login'}>{currentUser ? 'View your orders' : 'Already have an account? Log in'}</a>
                 </div>
               </div>
@@ -610,12 +604,12 @@ export default function App() {
           </div>
         )}
 
-        {(page === 'catalog' || page === 'cart' || page === 'orders') && sessionLoading && <p className="loading-note" role="status">Loading your workspace…</p>}
-        {(page === 'catalog' || page === 'cart' || page === 'orders') && !sessionLoading && !currentUser && (
+        {(page === 'cart' || page === 'orders') && sessionLoading && <p className="loading-note" role="status">Loading your workspace…</p>}
+        {(page === 'cart' || page === 'orders') && !sessionLoading && !currentUser && (
           <section className="access-panel"><p className="eyebrow">Your workspace</p><h1>Log in to continue.</h1><p>Your catalog, cart, and orders are ready when you are.</p><div className="hero-actions"><a className="primary-button" href="/login">Log in <span aria-hidden="true">→</span></a><a className="link-button" href="/signup">Create an account</a></div></section>
         )}
 
-      {page === 'catalog' && currentUser && (
+      {page === 'catalog' && (
         <section className="catalog-section" aria-labelledby="catalog-title">
           <div className="catalog-heading">
             <div>
@@ -623,7 +617,7 @@ export default function App() {
               <h2 id="catalog-title">Product catalog</h2>
               <p>Find the ingredients and supplies your kitchen needs.</p>
             </div>
-            {currentUser.role === 'ADMIN' && (
+            {currentUser?.role === 'ADMIN' && (
               <button className="primary-button" type="button" onClick={() => editProduct()}>
                 Add product
               </button>
@@ -662,7 +656,7 @@ export default function App() {
 
           {catalogError && <p className="form-message form-message--error" role="alert">{catalogError}</p>}
 
-          {showProductForm && currentUser.role === 'ADMIN' && (
+          {showProductForm && currentUser?.role === 'ADMIN' && (
             <form className="product-form" onSubmit={saveProduct}>
               <div className="product-form-heading">
                 <h3>{editingProductId ? 'Edit product' : 'Add a product'}</h3>
@@ -682,7 +676,7 @@ export default function App() {
           {catalogLoading ? (
             <p className="catalog-empty" role="status">Loading products…</p>
           ) : products.length === 0 ? (
-            <p className="catalog-empty">{currentUser.role === 'ADMIN' ? 'No products yet. Add the first catalog item above.' : 'No products match this search yet.'}</p>
+            <p className="catalog-empty">{currentUser?.role === 'ADMIN' ? 'No products yet. Add the first catalog item above.' : 'No products match this search yet.'}</p>
           ) : (
             <div className="product-grid">
               {products.map((product) => (
@@ -696,7 +690,7 @@ export default function App() {
                       <strong>{formatProductPrice(product)} <small>/ {product.unit}</small></strong>
                       {!product.active && <span className="inactive-badge">Inactive</span>}
                     </div>
-                    {currentUser.role === 'CUSTOMER' && (
+                    {currentUser?.role === 'CUSTOMER' && (
                       <div className="product-stock-row">
                         <span className={product.stockQuantity > 0 ? 'stock-available' : 'stock-empty'}>
                           {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
@@ -711,7 +705,15 @@ export default function App() {
                         </button>
                       </div>
                     )}
-                    {currentUser.role === 'ADMIN' && (
+                    {!currentUser && (
+                      <div className="product-stock-row">
+                        <span className={product.stockQuantity > 0 ? 'stock-available' : 'stock-empty'}>
+                          {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
+                        </span>
+                        <a className="secondary-button" href="/login">Log in to add</a>
+                      </div>
+                    )}
+                    {currentUser?.role === 'ADMIN' && (
                       <>
                         <div className="product-admin-actions">
                           <button className="text-button" type="button" onClick={() => editProduct(product)}>Edit</button>
