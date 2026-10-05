@@ -58,10 +58,13 @@ jobs:
       - name: Build application images
         run: docker compose --env-file .env.example -f infra/compose.yaml build
       - name: Start stack and verify PostgreSQL migrations and health
-        run: docker compose --env-file .env.example -f infra/compose.yaml up --wait --wait-timeout 180 -d
-      - name: Print stack logs when smoke test fails
-        if: failure()
-        run: docker compose --env-file .env.example -f infra/compose.yaml logs --no-color
+        run: |
+          docker compose --env-file .env.example -f infra/compose.yaml up --wait --wait-timeout 180 -d || {
+            docker compose --env-file .env.example -f infra/compose.yaml logs --no-color
+            kafka_id="$(docker compose --env-file .env.example -f infra/compose.yaml ps -q kafka)"
+            test -z "$kafka_id" || docker inspect --format '{{range .State.Health.Log}}{{println .Output}}{{end}}' "$kafka_id"
+            exit 1
+          }
       - name: Stop stack and remove its temporary database volume
         if: always()
         run: docker compose --env-file .env.example -f infra/compose.yaml down --volumes
