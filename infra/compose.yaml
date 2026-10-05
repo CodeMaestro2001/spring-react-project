@@ -34,8 +34,9 @@ services:
     image: apache/kafka:3.9.0
     restart: unless-stopped
     environment:
-      # Stable KRaft cluster identifier. Changing it would invalidate this broker volume.
-      CLUSTER_ID: supplycart-kafka-cluster-01
+      # Stable, valid KRaft UUID (Kafka requires a URL-safe Base64 cluster ID).
+      # Do not change after production data has been created in the named volume.
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
@@ -52,10 +53,11 @@ services:
     volumes:
       - supplycart-kafka-data:/tmp/kraft-combined-logs
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 12
+      start_period: 20s
 
   api:
     build:
