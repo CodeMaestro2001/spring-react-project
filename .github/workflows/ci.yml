@@ -59,6 +59,9 @@ jobs:
         run: docker compose --env-file .env.example -f infra/compose.yaml build
       - name: Start stack and verify PostgreSQL migrations and health
         run: docker compose --env-file .env.example -f infra/compose.yaml up --wait -d
+      - name: Print stack logs when smoke test fails
+        if: failure()
+        run: docker compose --env-file .env.example -f infra/compose.yaml logs --no-color
       - name: Stop stack and remove its temporary database volume
         if: always()
         run: docker compose --env-file .env.example -f infra/compose.yaml down --volumes
