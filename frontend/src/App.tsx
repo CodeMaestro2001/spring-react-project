@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
-type ApiStatus = 'checking' | 'online' | 'offline'
 type AuthMode = 'login' | 'register'
+type Page = 'home' | 'login' | 'signup' | 'catalog' | 'cart' | 'orders' | 'not-found'
+
+const pageByPath: Record<string, Page> = {
+  '/': 'home',
+  '/login': 'login',
+  '/signup': 'signup',
+  '/catalog': 'catalog',
+  '/cart': 'cart',
+  '/orders': 'orders',
+}
+
+const page = pageByPath[window.location.pathname.replace(/\/+$/, '') || '/'] ?? 'not-found'
 
 type AuthUser = {
   id: string
@@ -114,9 +125,9 @@ async function loadCsrf(): Promise<CsrfResponse> {
 }
 
 export default function App() {
-  const [apiStatus, setApiStatus] = useState<ApiStatus>('checking')
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const authMode: AuthMode = page === 'signup' ? 'register' : 'login'
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -148,16 +159,6 @@ export default function App() {
   useEffect(() => {
     const controller = new AbortController()
 
-    fetch('/actuator/health', { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error('Health check failed')
-        return response.json() as Promise<{ status?: string }>
-      })
-      .then((health) => setApiStatus(health.status === 'UP' ? 'online' : 'offline'))
-      .catch(() => {
-        if (!controller.signal.aborted) setApiStatus('offline')
-      })
-
     fetch('/api/auth/me', { signal: controller.signal })
       .then((response) => {
         if (response.status === 401) return null
@@ -169,6 +170,9 @@ export default function App() {
       })
       .catch(() => {
         if (!controller.signal.aborted) setCurrentUser(null)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSessionLoading(false)
       })
 
     return () => controller.abort()
@@ -256,12 +260,6 @@ export default function App() {
     return () => controller.abort()
   }, [currentUser])
 
-  const statusLabel = {
-    checking: 'Checking API',
-    online: 'API connected',
-    offline: 'API not connected',
-  }[apiStatus]
-
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setAuthError('')
@@ -284,13 +282,12 @@ export default function App() {
       const user = await readResponse<AuthUser>(response)
 
       if (authMode === 'register') {
-        setAuthMode('login')
         setPassword('')
-        setAuthMessage('Your account is ready. Sign in to continue.')
+        window.location.assign('/login?registered=1')
       } else {
         setCurrentUser(user)
         setPassword('')
-        setAuthMessage('You are signed in.')
+        window.location.assign('/catalog')
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'The request could not be completed.')
@@ -312,18 +309,12 @@ export default function App() {
       })
       if (!response.ok) throw new Error('Could not sign out. Please try again.')
       setCurrentUser(null)
-      setAuthMessage('You are signed out.')
+      window.location.assign('/')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Could not sign out.')
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  function changeAuthMode(mode: AuthMode) {
-    setAuthMode(mode)
-    setAuthError('')
-    setAuthMessage('')
   }
 
   function editProduct(product?: Product) {
@@ -506,119 +497,125 @@ export default function App() {
   }
 
   return (
-    <main className="page-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="SupplyCart home">
-          <span className="brand-mark" aria-hidden="true">S</span>
-          <span>SupplyCart</span>
-        </a>
-        <div className={`api-status api-status--${apiStatus}`} role="status" aria-live="polite">
-          <span className="status-dot" aria-hidden="true" />
-          {statusLabel}
+    <div className="site-layout">
+      <header className="site-header">
+        <div className="header-inner">
+          <a className="brand" href="/" aria-label="SupplyCart home">
+            <span className="brand-mark" aria-hidden="true">S</span>
+            <span>SupplyCart</span>
+          </a>
+          <nav className="main-nav" aria-label="Main navigation">
+            <a href="/" aria-current={page === 'home' ? 'page' : undefined}>Home</a>
+            <a href="/catalog" aria-current={page === 'catalog' ? 'page' : undefined}>Catalog</a>
+            {currentUser && <a href="/orders" aria-current={page === 'orders' ? 'page' : undefined}>Orders</a>}
+            {currentUser?.role === 'CUSTOMER' && <a href="/cart" aria-current={page === 'cart' ? 'page' : undefined}>Cart <span className="cart-count">{cart.totalQuantity}</span></a>}
+          </nav>
+          <div className="header-actions">
+            {!sessionLoading && (currentUser ? (
+              <>
+                <span className="account-name" title={currentUser.email}>{currentUser.fullName}</span>
+                <button className="header-signout" type="button" onClick={signOut} disabled={isSubmitting}>Sign out</button>
+              </>
+            ) : (
+              <>
+                <a className="header-login" href="/login">Log in</a>
+                <a className="header-signup" href="/signup">Sign up</a>
+              </>
+            ))}
+          </div>
         </div>
       </header>
 
-      <section className="welcome-card" aria-labelledby="welcome-title">
-        <div className="welcome-copy">
-          <p className="eyebrow">A better way to restock</p>
-          <h1 id="welcome-title">Everything your kitchen needs, in one place.</h1>
-          <p className="intro">
-            SupplyCart is a foodservice ordering workspace for restaurants and the people
-            who keep them running.
-          </p>
-          <div className="phase-note">
-            <span className="phase-number">04</span>
-            <span><strong>Ordering</strong><br />Browse, stock and checkout flows are ready.</span>
-          </div>
-        </div>
-        <div className="welcome-art" aria-hidden="true">
-          <div className="sun" />
-          <div className="crate crate--back"><span /><span /><span /></div>
-          <div className="crate crate--front"><span /><span /><span /></div>
-          <div className="leaf leaf--one" />
-          <div className="leaf leaf--two" />
-          <div className="art-caption">GOOD FOOD<br />STARTS HERE</div>
-        </div>
-      </section>
+      <main className="page-shell" id="main-content">
+        {currentUser && authError && <p className="form-message form-message--error global-message" role="alert">{authError}</p>}
+        {currentUser && authMessage && <p className="form-message form-message--success global-message" role="status">{authMessage}</p>}
 
-      <section className="account-panel" aria-labelledby="account-title">
-        {currentUser ? (
-          <div className="account-signed-in">
-            <div>
-              <p className="eyebrow">Your account</p>
-              <h2 id="account-title">Welcome, {currentUser.fullName}</h2>
-              <p className="account-detail">{currentUser.email}</p>
-              <span className="role-badge">{currentUser.role.toLowerCase()}</span>
-            </div>
-            <button className="secondary-button" type="button" onClick={signOut} disabled={isSubmitting}>
-              {isSubmitting ? 'Signing out…' : 'Sign out'}
-            </button>
-          </div>
-        ) : (
+        {page === 'home' && (
           <>
-            <div className="account-heading">
-              <p className="eyebrow">Customer account</p>
-              <h2 id="account-title">{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
-              <p>Sign in to your workspace or create a customer account.</p>
-            </div>
-            <div className="auth-tabs" role="group" aria-label="Account action">
-              <button type="button" aria-pressed={authMode === 'login'} onClick={() => changeAuthMode('login')}>
-                Sign in
-              </button>
-              <button type="button" aria-pressed={authMode === 'register'} onClick={() => changeAuthMode('register')}>
-                Create account
-              </button>
-            </div>
-            <form className="auth-form" onSubmit={submitAuth}>
-              {authMode === 'register' && (
-                <label>
-                  Full name
-                  <input
-                    autoComplete="name"
-                    maxLength={120}
-                    required
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                  />
-                </label>
-              )}
-              <label>
-                Email address
-                <input
-                  autoComplete="email"
-                  maxLength={254}
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
-                  maxLength={72}
-                  minLength={authMode === 'register' ? 12 : undefined}
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-                {authMode === 'register' && <span className="field-hint">Use at least 12 characters.</span>}
-              </label>
-              {authError && <p className="form-message form-message--error" role="alert">{authError}</p>}
-              {authMessage && <p className="form-message form-message--success" role="status">{authMessage}</p>}
-              <button className="primary-button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Please wait…' : authMode === 'login' ? 'Sign in' : 'Create customer account'}
-              </button>
-            </form>
+            <section className="home-hero" aria-labelledby="home-title">
+              <div className="hero-copy">
+                <p className="eyebrow">Foodservice ordering, made simple</p>
+                <h1 id="home-title">A better way to keep your kitchen stocked.</h1>
+                <p className="hero-description">Find the products your team relies on, place orders with confidence, and keep everything in one clear workspace.</p>
+                <div className="hero-actions">
+                  <a className="primary-button" href={currentUser ? '/catalog' : '/signup'}>{currentUser ? 'Browse catalog' : 'Create an account'} <span aria-hidden="true">→</span></a>
+                  <a className="link-button" href={currentUser ? '/orders' : '/login'}>{currentUser ? 'View your orders' : 'Already have an account? Log in'}</a>
+                </div>
+              </div>
+              <div className="hero-process" aria-label="How SupplyCart works">
+                <p className="process-label">The simple way to order</p>
+                <div className="process-step"><span>01</span><div><h2>Find what you need</h2><p>Browse the catalog and check available stock.</p></div></div>
+                <div className="process-step"><span>02</span><div><h2>Build your cart</h2><p>Keep the right quantities together in one place.</p></div></div>
+                <div className="process-step"><span>03</span><div><h2>Place your order</h2><p>Checkout and follow your order history.</p></div></div>
+              </div>
+            </section>
+            <section className="home-benefits" aria-labelledby="benefits-title">
+              <div className="section-heading"><p className="eyebrow">Made for busy teams</p><h2 id="benefits-title">Ordering that gets out of your way.</h2></div>
+              <div className="benefit-grid">
+                <article><span className="benefit-index">01 / Catalog</span><h3>Everything in view</h3><p>Search products, compare prices, and see stock before you order.</p></article>
+                <article><span className="benefit-index">02 / Checkout</span><h3>A clearer supply run</h3><p>Build your order in the cart and review the total before placing it.</p></article>
+                <article><span className="benefit-index">03 / History</span><h3>Stay on top of orders</h3><p>See your past orders and their status in one familiar workspace.</p></article>
+              </div>
+            </section>
           </>
         )}
-        {currentUser && authMessage && <p className="form-message form-message--success" role="status">{authMessage}</p>}
-        {currentUser && authError && <p className="form-message form-message--error" role="alert">{authError}</p>}
-      </section>
 
-      {currentUser ? (
+        {(page === 'login' || page === 'signup') && (
+          <div className="auth-layout">
+            <aside className="auth-intro">
+              <a className="back-link" href="/">← Back to home</a>
+              <p className="eyebrow">Welcome to SupplyCart</p>
+              <h1>{authMode === 'login' ? 'Your kitchen, ready for what’s next.' : 'Good service starts with good supply.'}</h1>
+              <p>A simple home for your products, orders, and the everyday essentials that keep service moving.</p>
+              <div className="auth-intro-footer"><span className="intro-rule" />Built for the teams behind every great meal.</div>
+            </aside>
+            <section className="auth-panel" aria-labelledby="auth-title">
+              {sessionLoading ? (
+                <p className="loading-note" role="status">Checking your session…</p>
+              ) : currentUser ? (
+                <div className="signed-in-state">
+                  <p className="eyebrow">Your account</p>
+                  <h2 id="auth-title">You’re signed in.</h2>
+                  <p>Continue as {currentUser.fullName}.</p>
+                  <a className="primary-button" href="/catalog">Go to catalog <span aria-hidden="true">→</span></a>
+                </div>
+              ) : (
+                <>
+                  <div className="auth-heading">
+                    <p className="eyebrow">{authMode === 'login' ? 'Welcome back' : 'Join SupplyCart'}</p>
+                    <h2 id="auth-title">{authMode === 'login' ? 'Log in to your account' : 'Create your account'}</h2>
+                    <p>{authMode === 'login' ? 'Enter your details to continue.' : 'Set up your customer account to start ordering.'}</p>
+                  </div>
+                  {page === 'login' && new URLSearchParams(window.location.search).has('registered') && <p className="form-message form-message--success" role="status">Account created. You can log in now.</p>}
+                  <form className="auth-form" onSubmit={submitAuth}>
+                    {authMode === 'register' && (
+                      <label>Full name
+                        <input autoComplete="name" maxLength={120} required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Your full name" />
+                      </label>
+                    )}
+                    <label>Email address
+                      <input autoComplete="email" maxLength={254} required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" />
+                    </label>
+                    <label>Password
+                      <input autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} maxLength={72} minLength={authMode === 'register' ? 12 : undefined} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" />
+                      {authMode === 'register' && <span className="field-hint">Use at least 12 characters.</span>}
+                    </label>
+                    {authError && <p className="form-message form-message--error" role="alert">{authError}</p>}
+                    <button className="primary-button auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Please wait…' : authMode === 'login' ? 'Log in' : 'Create account'} <span aria-hidden="true">→</span></button>
+                  </form>
+                  <p className="auth-switch">{authMode === 'login' ? 'New to SupplyCart?' : 'Already have an account?'} <a href={authMode === 'login' ? '/signup' : '/login'}>{authMode === 'login' ? 'Create an account' : 'Log in'}</a></p>
+                </>
+              )}
+            </section>
+          </div>
+        )}
+
+        {(page === 'catalog' || page === 'cart' || page === 'orders') && sessionLoading && <p className="loading-note" role="status">Loading your workspace…</p>}
+        {(page === 'catalog' || page === 'cart' || page === 'orders') && !sessionLoading && !currentUser && (
+          <section className="access-panel"><p className="eyebrow">Your workspace</p><h1>Log in to continue.</h1><p>Your catalog, cart, and orders are ready when you are.</p><div className="hero-actions"><a className="primary-button" href="/login">Log in <span aria-hidden="true">→</span></a><a className="link-button" href="/signup">Create an account</a></div></section>
+        )}
+
+      {page === 'catalog' && currentUser && (
         <section className="catalog-section" aria-labelledby="catalog-title">
           <div className="catalog-heading">
             <div>
@@ -749,15 +746,9 @@ export default function App() {
             <button className="secondary-button" type="button" disabled={catalogPage + 1 >= totalPages || catalogLoading} onClick={() => setCatalogPage((page) => page + 1)}>Next</button>
           </div>
         </section>
-      ) : (
-        <section className="catalog-teaser" aria-labelledby="catalog-title">
-          <div><p className="eyebrow">Coming into view</p><h2 id="catalog-title">Your kitchen's next great order starts here.</h2></div>
-          <p>Sign in to browse the product catalog. New restaurant customers can create an account above.</p>
-        </section>
       )}
 
-      {currentUser?.role === 'CUSTOMER' && (
-        <div className="order-layout">
+      {page === 'cart' && currentUser?.role === 'CUSTOMER' && (
           <section className="cart-section" aria-labelledby="cart-title">
             <div className="catalog-heading">
               <div>
@@ -805,6 +796,9 @@ export default function App() {
             )}
           </section>
 
+      )}
+
+      {page === 'orders' && currentUser?.role === 'CUSTOMER' && (
           <section className="orders-section" aria-labelledby="orders-title">
             <div className="catalog-heading">
               <div>
@@ -830,10 +824,13 @@ export default function App() {
               </div>
             )}
           </section>
-        </div>
       )}
 
-      {currentUser?.role === 'ADMIN' && (
+      {page === 'cart' && currentUser?.role === 'ADMIN' && (
+        <section className="access-panel"><p className="eyebrow">Admin workspace</p><h1>Cart is for customer accounts.</h1><p>Manage products and fulfilment from the catalog and orders pages.</p><a className="primary-button" href="/catalog">Go to catalog <span aria-hidden="true">→</span></a></section>
+      )}
+
+      {page === 'orders' && currentUser?.role === 'ADMIN' && (
         <section className="orders-section admin-orders-section" aria-labelledby="admin-orders-title">
           <div className="catalog-heading">
             <div><p className="eyebrow">Fulfilment desk</p><h2 id="admin-orders-title">Recent orders</h2></div>
@@ -883,5 +880,6 @@ export default function App() {
         <span>Phase 4 · Cart, inventory &amp; orders</span>
       </footer>
     </main>
+    </div>
   )
 }
