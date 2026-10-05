@@ -74,15 +74,22 @@ jobs:
 
       - name: Configure SSH
         env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          test -n "$DEPLOY_HOST" || { echo "Missing DEPLOY_HOST secret"; exit 1; }
+          test -n "$DEPLOY_USER" || { echo "Missing DEPLOY_USER secret"; exit 1; }
           test -n "$DEPLOY_SSH_KEY" || { echo "Missing DEPLOY_SSH_KEY secret"; exit 1; }
-          test -n "$DEPLOY_KNOWN_HOSTS" || { echo "Missing DEPLOY_KNOWN_HOSTS secret"; exit 1; }
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/id_ed25519"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          else
+            ssh-keyscan -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+          fi
           chmod 600 "$HOME/.ssh/known_hosts"
 
       - name: Copy application source to VPS
