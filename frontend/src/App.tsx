@@ -879,7 +879,7 @@ export default function App() {
 
       <footer className="page-footer">
         <span>SupplyCart · B2B foodservice ordering</span>
-        <span>Phase 4 · Cart, inventory &amp; orders</span>
+        <span>Secure ordering · Live inventory</span>
       </footer>
     </main>
     </div>
