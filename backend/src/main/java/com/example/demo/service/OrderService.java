@@ -14,6 +14,7 @@ import com.example.demo.repo.CustomerOrderRepository;
 import com.example.demo.repo.ProductRepository;
 import com.example.demo.repo.ShoppingCartRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,15 +35,18 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final CustomerOrderRepository customerOrderRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public OrderService(AccountRepository accountRepository, ShoppingCartRepository shoppingCartRepository,
                         CartItemRepository cartItemRepository, ProductRepository productRepository,
-                        CustomerOrderRepository customerOrderRepository) {
+                        CustomerOrderRepository customerOrderRepository,
+                        ApplicationEventPublisher applicationEventPublisher) {
         this.accountRepository = accountRepository;
         this.shoppingCartRepository = shoppingCartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.customerOrderRepository = customerOrderRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
@@ -107,6 +111,7 @@ public class OrderService {
 
         customerOrderRepository.saveAndFlush(order);
         cartItemRepository.deleteAllByCartId(cart.getId());
+        applicationEventPublisher.publishEvent(OrderEvent.created(order));
         return OrderResponse.from(order);
     }
 
@@ -162,6 +167,7 @@ public class OrderService {
         }
 
         order.setStatus(nextStatus);
+        applicationEventPublisher.publishEvent(OrderEvent.statusChanged(order));
         return OrderResponse.from(order);
     }
 }

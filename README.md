@@ -1,6 +1,6 @@
 # SupplyCart
 
-SupplyCart is a B2B foodservice ordering application for restaurants. It is being built as a small modular monolith with a Spring Boot API, a React storefront and PostgreSQL. The repository includes the Phase 1 foundation, Phase 2 customer authentication, Phase 3 product catalog and Phase 4 cart, inventory and orders.
+SupplyCart is a B2B foodservice ordering application for restaurants. It is being built as a small modular monolith with a Spring Boot API, a React storefront, PostgreSQL and Kafka. The repository includes the Phase 1 foundation, Phase 2 customer authentication, Phase 3 product catalog and Phase 4 cart, inventory and orders.
 
 ## Requirements
 
@@ -23,7 +23,7 @@ Change `POSTGRES_PASSWORD` in `.env` before using this setup outside a local dev
 
 ## Run the complete project with Docker
 
-From the repository root, build and start PostgreSQL, the API, and the frontend:
+From the repository root, build and start PostgreSQL, Redis, Kafka, the API, and the frontend:
 
 ```powershell
 docker compose --env-file .env -f infra/compose.yaml up --build -d
@@ -129,6 +129,8 @@ Each customer has a persistent cart. Customers can add in-stock products, change
 
 Checkout rechecks product status, price and stock inside a database transaction, locks inventory rows to prevent two checkouts overselling the same stock, decrements quantities and writes an order with price/name snapshots. Checkout requires an `Idempotency-Key` header so a retried request returns the original order rather than creating a duplicate. The cart is cleared only after a successful order commit.
 
+After a successful database commit, the API publishes an idempotent Kafka event to `supplycart.order-events.v1`, keyed by order ID. `ORDER_CREATED` and `ORDER_STATUS_CHANGED` events let notification, analytics or warehouse consumers work independently without adding latency to checkout. Kafka publishing is disabled by default when running the API directly and enabled in Docker Compose. If Kafka is temporarily unavailable, the already-committed checkout remains successful and the publish failure is logged; a transactional outbox should be added before using these events for irreversible external actions.
+
 Customers can review up to 50 recent orders. Admins can set product stock (0–10,000,000), inspect up to 100 recent orders and move orders through `PLACED → PROCESSING → COMPLETED`. Admins can cancel `PLACED` or `PROCESSING` orders; cancellation restores the reserved stock in the same transaction. Completed and cancelled orders are terminal. Payments, shipping and automated fulfillment are not implemented.
 
 Key API routes (cart and customer orders require the `CUSTOMER` role; admin routes require `ADMIN`):
@@ -169,4 +171,4 @@ GitHub Actions runs backend verification, frontend typecheck/build, Compose conf
 
 ## Current scope and limitations
 
-Payment, shipping, Kafka and AI integration are not implemented yet. Account email verification and password recovery are deferred. There are no real payments or production credentials.
+Payment, shipping and AI integration are not implemented yet. Account email verification and password recovery are deferred. There are no real payments or production credentials.
