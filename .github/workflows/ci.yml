@@ -92,6 +92,16 @@ jobs:
           fi
           chmod 600 "$HOME/.ssh/known_hosts"
 
+      - name: Verify VPS SSH access
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" '
+            mkdir -p /opt/supplycart &&
+            test -w /opt/supplycart
+          '
+
       - name: Copy application source to VPS
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
