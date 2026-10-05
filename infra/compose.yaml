@@ -33,6 +33,9 @@ services:
   kafka:
     image: apache/kafka:3.9.0
     restart: unless-stopped
+    depends_on:
+      kafka-data-init:
+        condition: service_completed_successfully
     environment:
       # Stable, valid KRaft UUID (Kafka requires a URL-safe Base64 cluster ID).
       # Do not change after production data has been created in the named volume.
@@ -58,6 +61,16 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+
+  # The official Kafka image runs as uid 1000. Docker creates named volumes as
+  # root, so initialise ownership once instead of running the broker as root.
+  kafka-data-init:
+    image: apache/kafka:3.9.0
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "chown -R 1000:1000 /tmp/kraft-combined-logs"]
+    volumes:
+      - supplycart-kafka-data:/tmp/kraft-combined-logs
 
   api:
     build:
