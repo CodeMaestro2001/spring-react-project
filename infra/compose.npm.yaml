@@ -1,0 +1,24 @@
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  api:
+    ports: !reset []
+    environment:
+      SESSION_COOKIE_SECURE: "true"
+
+  web:
+    ports: !reset []
+    networks:
+      default: {}
+      proxy:
+        aliases:
+          - supplycart-web
+
+networks:
+  proxy:
+    external: true
+    name: proxy
