@@ -111,7 +111,7 @@ class DemoApplicationTests {
 		assertEquals(3, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
 		assertTrue(cartService.get(account.getId()).items().isEmpty());
 
-		product.update(product.getSku(), "Renamed Flour", product.getDescription(), product.getCategory(),
+		product.update(product.getSku(), "Renamed Flour", product.getDescription(), product.getImageUrl(), product.getCategory(),
 				product.getUnit(), new BigDecimal("99.00"), product.getCurrencyCode());
 		productRepository.flush();
 		OrderResponse retry = orderService.checkout(account.getId(), "checkout-key-1");
@@ -170,7 +170,7 @@ class DemoApplicationTests {
 		String category = "Cache-" + UUID.randomUUID();
 		assertFalse(productService.categories().contains(category));
 		productService.create(new ProductUpsertRequest("CACHE-TEST", "Cached Category Item", null,
-				category, "case", new BigDecimal("12.00"), "LKR"));
+				null, category, "case", new BigDecimal("12.00"), "LKR"));
 
 		assertTrue(productService.categories().contains(category));
 	}
