@@ -1,11 +1,15 @@
 package com.example.demo;
 
 import com.example.demo.dto.CartResponse;
+import com.example.demo.dto.CheckoutRequest;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.ProductUpsertRequest;
 import com.example.demo.model.Account;
 import com.example.demo.model.AccountRole;
 import com.example.demo.model.OrderStatus;
+import com.example.demo.model.PaymentMethod;
+import com.example.demo.model.PaymentStatus;
+import com.example.demo.model.DeliveryStatus;
 import com.example.demo.model.Product;
 import com.example.demo.repo.AccountRepository;
 import com.example.demo.repo.ProductRepository;
@@ -103,7 +107,7 @@ class DemoApplicationTests {
 		Product product = createProduct("Restaurant Flour", "24.50", 5);
 		cartService.add(account.getId(), product.getId(), 2);
 
-		OrderResponse placedOrder = orderService.checkout(account.getId(), "checkout-key-1");
+		OrderResponse placedOrder = checkout(account, "checkout-key-1");
 
 		assertEquals(OrderStatus.PLACED, placedOrder.status());
 		assertEquals(new BigDecimal("49.00"), placedOrder.totalAmount());
@@ -114,7 +118,7 @@ class DemoApplicationTests {
 		product.update(product.getSku(), "Renamed Flour", product.getDescription(), product.getImageUrl(), product.getCategory(),
 				product.getUnit(), new BigDecimal("99.00"), product.getCurrencyCode());
 		productRepository.flush();
-		OrderResponse retry = orderService.checkout(account.getId(), "checkout-key-1");
+		OrderResponse retry = checkout(account, "checkout-key-1");
 
 		assertEquals(placedOrder.id(), retry.id());
 		assertEquals(new BigDecimal("49.00"), retry.totalAmount());
@@ -129,7 +133,7 @@ class DemoApplicationTests {
 		Account account = createCustomer();
 		Product product = createProduct("Kitchen Rice", "18.00", 7);
 		cartService.add(account.getId(), product.getId(), 3);
-		OrderResponse placedOrder = orderService.checkout(account.getId(), "checkout-key-2");
+		OrderResponse placedOrder = checkout(account, "checkout-key-2");
 
 		assertEquals(4, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
 		OrderResponse cancelledOrder = orderService.updateStatus(placedOrder.id(), OrderStatus.CANCELLED);
@@ -155,7 +159,7 @@ class DemoApplicationTests {
 		Account account = createCustomer();
 		Product product = createProduct("Order Lifecycle Beans", "12.00", 4);
 		cartService.add(account.getId(), product.getId(), 1);
-		OrderResponse placedOrder = orderService.checkout(account.getId(), "checkout-key-" + UUID.randomUUID());
+		OrderResponse placedOrder = checkout(account, "checkout-key-" + UUID.randomUUID());
 
 		assertThrows(ResponseStatusException.class,
 				() -> orderService.updateStatus(placedOrder.id(), OrderStatus.COMPLETED));
@@ -175,6 +179,24 @@ class DemoApplicationTests {
 		assertTrue(productService.categories().contains(category));
 	}
 
+	@Test
+	@Transactional
+	void paymentAndDeliveryFollowValidLifecycles() {
+		Account account = createCustomer();
+		Product product = createProduct("Delivery Rice", "15.00", 3);
+		cartService.add(account.getId(), product.getId(), 1);
+		OrderResponse placedOrder = checkout(account, "delivery-" + UUID.randomUUID());
+
+		assertEquals(PaymentMethod.BANK_TRANSFER, placedOrder.paymentMethod());
+		assertEquals(PaymentStatus.PENDING, placedOrder.paymentStatus());
+		assertEquals(DeliveryStatus.PENDING, placedOrder.deliveryStatus());
+		assertEquals("Test Customer", placedOrder.deliveryRecipient());
+		assertEquals(PaymentStatus.PAID, orderService.updatePaymentStatus(placedOrder.id(), PaymentStatus.PAID).paymentStatus());
+		assertEquals(DeliveryStatus.PREPARING, orderService.updateDeliveryStatus(placedOrder.id(), DeliveryStatus.PREPARING).deliveryStatus());
+		assertEquals(DeliveryStatus.DISPATCHED, orderService.updateDeliveryStatus(placedOrder.id(), DeliveryStatus.DISPATCHED).deliveryStatus());
+		assertEquals(DeliveryStatus.DELIVERED, orderService.updateDeliveryStatus(placedOrder.id(), DeliveryStatus.DELIVERED).deliveryStatus());
+	}
+
 	private Account createCustomer() {
 		String email = UUID.randomUUID() + "@example.com";
 		return accountRepository.saveAndFlush(new Account(email, "Test Customer", "test-hash", AccountRole.CUSTOMER));
@@ -185,5 +207,11 @@ class DemoApplicationTests {
 				new BigDecimal(price), "LKR");
 		product.setStockQuantity(stockQuantity);
 		return productRepository.saveAndFlush(product);
+	}
+
+	private OrderResponse checkout(Account account, String idempotencyKey) {
+		return orderService.checkout(account.getId(), idempotencyKey,
+				new CheckoutRequest("Test Customer", "1 Test Lane, Colombo", "0771234567", null,
+						PaymentMethod.BANK_TRANSFER));
 	}
 }

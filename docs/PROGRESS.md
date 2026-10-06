@@ -53,11 +53,12 @@ This file records work against the phases in `B2B_Ecommerce_Codex_Plan.md`.
 - [x] Added transactional checkout with deterministic pessimistic product-row locks, price/stock revalidation and `Idempotency-Key` protection.
 - [x] Added customer order history and admin order management with validated status transitions; cancelling before completion restores stock atomically.
 - [x] Added storefront cart quantity controls, checkout, stock display/admin stock entry, customer order history and admin fulfillment controls.
+- [x] Added delivery recipient/address capture, bank-transfer or cash-on-delivery selection, persisted payment/delivery status, and admin fulfilment controls for payment and dispatch progress.
 - [x] Documented inventory, transaction, idempotency and single-currency cart decisions and manual verification steps.
 
 ### Limitations and next step
 
-- The current checkout records an order but does not collect payment or schedule delivery.
+- The application records payment method and delivery details, but does not collect card data, call a payment gateway, or integrate with a courier provider.
 - Carts do not reserve stock; stock is checked and decremented only during checkout.
 - Phase 4 is implemented; Phase 5 details follow.
 

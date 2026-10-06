@@ -1,6 +1,9 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.OrderResponse;
+import com.example.demo.dto.CheckoutRequest;
+import com.example.demo.model.DeliveryStatus;
+import com.example.demo.model.PaymentStatus;
 import com.example.demo.model.Account;
 import com.example.demo.model.CartItem;
 import com.example.demo.model.CustomerOrder;
@@ -50,7 +53,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse checkout(UUID accountId, String idempotencyKey) {
+    public OrderResponse checkout(UUID accountId, String idempotencyKey, CheckoutRequest request) {
         String normalizedKey = idempotencyKey == null ? "" : idempotencyKey.trim();
         if (normalizedKey.isBlank() || normalizedKey.length() > 100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid Idempotency-Key header is required.");
@@ -100,7 +103,8 @@ public class OrderService {
 
         String currencyCode = currencies.iterator().next();
         CustomerOrder order = new CustomerOrder(account.getId(), account.getEmail(), normalizedKey,
-                currencyCode, total);
+                currencyCode, total, request.paymentMethod(), request.deliveryRecipient(), request.deliveryAddress(),
+                request.deliveryPhone(), request.deliveryNote());
         for (CartItem item : cartItems) {
             Product product = products.get(item.getProductId());
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -167,6 +171,48 @@ public class OrderService {
         }
 
         order.setStatus(nextStatus);
+        if (cancel) {
+            order.setDeliveryStatus(DeliveryStatus.CANCELLED);
+        }
+        applicationEventPublisher.publishEvent(OrderEvent.statusChanged(order));
+        return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public OrderResponse updatePaymentStatus(UUID orderId, PaymentStatus nextStatus) {
+        CustomerOrder order = customerOrderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found."));
+        PaymentStatus currentStatus = order.getPaymentStatus();
+        if (currentStatus == nextStatus) return OrderResponse.from(order);
+        boolean valid = (currentStatus == PaymentStatus.PENDING
+                && (nextStatus == PaymentStatus.PAID || nextStatus == PaymentStatus.FAILED))
+                || (currentStatus == PaymentStatus.PAID && nextStatus == PaymentStatus.REFUNDED);
+        if (!valid) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invalid payment transition from " + currentStatus + " to " + nextStatus + ".");
+        }
+        order.setPaymentStatus(nextStatus);
+        applicationEventPublisher.publishEvent(OrderEvent.statusChanged(order));
+        return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public OrderResponse updateDeliveryStatus(UUID orderId, DeliveryStatus nextStatus) {
+        CustomerOrder order = customerOrderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found."));
+        DeliveryStatus currentStatus = order.getDeliveryStatus();
+        if (currentStatus == nextStatus) return OrderResponse.from(order);
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A cancelled order cannot be delivered.");
+        }
+        boolean valid = (currentStatus == DeliveryStatus.PENDING && nextStatus == DeliveryStatus.PREPARING)
+                || (currentStatus == DeliveryStatus.PREPARING && nextStatus == DeliveryStatus.DISPATCHED)
+                || (currentStatus == DeliveryStatus.DISPATCHED && nextStatus == DeliveryStatus.DELIVERED);
+        if (!valid) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invalid delivery transition from " + currentStatus + " to " + nextStatus + ".");
+        }
+        order.setDeliveryStatus(nextStatus);
         applicationEventPublisher.publishEvent(OrderEvent.statusChanged(order));
         return OrderResponse.from(order);
     }

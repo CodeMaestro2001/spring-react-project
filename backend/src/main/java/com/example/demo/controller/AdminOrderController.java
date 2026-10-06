@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.dto.OrderStatusRequest;
+import com.example.demo.dto.PaymentStatusRequest;
+import com.example.demo.dto.DeliveryStatusRequest;
 import com.example.demo.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,5 +35,17 @@ public class AdminOrderController {
     public OrderResponse updateStatus(@PathVariable UUID orderId,
                                       @Valid @RequestBody OrderStatusRequest request) {
         return orderService.updateStatus(orderId, request.status());
+    }
+
+    @PatchMapping("/{orderId}/payment-status")
+    public OrderResponse updatePaymentStatus(@PathVariable UUID orderId,
+                                             @Valid @RequestBody PaymentStatusRequest request) {
+        return orderService.updatePaymentStatus(orderId, request.status());
+    }
+
+    @PatchMapping("/{orderId}/delivery-status")
+    public OrderResponse updateDeliveryStatus(@PathVariable UUID orderId,
+                                              @Valid @RequestBody DeliveryStatusRequest request) {
+        return orderService.updateDeliveryStatus(orderId, request.status());
     }
 }

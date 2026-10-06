@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 type AuthMode = 'login' | 'register'
-type Page = 'home' | 'login' | 'signup' | 'catalog' | 'cart' | 'orders' | 'not-found'
+type Page = 'home' | 'login' | 'signup' | 'admin' | 'catalog' | 'cart' | 'orders' | 'not-found'
 
 const pageByPath: Record<string, Page> = {
   '/': 'home',
   '/login': 'login',
   '/signup': 'signup',
+  '/admin': 'admin',
   '/catalog': 'catalog',
   '/cart': 'cart',
   '/orders': 'orders',
@@ -79,6 +80,13 @@ type Order = {
   currencyCode: string
   totalAmount: number
   placedAt: string
+  paymentMethod: 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
+  paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+  deliveryStatus: 'PENDING' | 'PREPARING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED'
+  deliveryRecipient: string
+  deliveryAddress: string
+  deliveryPhone: string | null
+  deliveryNote: string | null
   items: OrderLine[]
 }
 
@@ -154,6 +162,11 @@ export default function App() {
   const [cartError, setCartError] = useState('')
   const [cartLoading, setCartLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [deliveryRecipient, setDeliveryRecipient] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryPhone, setDeliveryPhone] = useState('')
+  const [deliveryNote, setDeliveryNote] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<Order['paymentMethod']>('BANK_TRANSFER')
   const [orders, setOrders] = useState<Order[]>([])
   const [orderError, setOrderError] = useState('')
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({})
@@ -180,6 +193,12 @@ export default function App() {
 
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    if (!sessionLoading && currentUser?.role === 'ADMIN' && (page === 'login' || page === 'signup')) {
+      window.location.replace('/admin')
+    }
+  }, [currentUser, sessionLoading])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -284,7 +303,7 @@ export default function App() {
       } else {
         setCurrentUser(user)
         setPassword('')
-        window.location.assign('/catalog')
+        window.location.assign(user.role === 'ADMIN' ? '/admin' : '/catalog')
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'The request could not be completed.')
@@ -416,8 +435,12 @@ export default function App() {
   }
 
   async function checkout() {
-    setCheckoutLoading(true)
     setCartError('')
+    if (!deliveryRecipient.trim() || !deliveryAddress.trim()) {
+      setCartError('Enter the delivery recipient and address before placing the order.')
+      return
+    }
+    setCheckoutLoading(true)
     try {
       const csrf = await loadCsrf()
       checkoutKey.current ??= crypto.randomUUID()
@@ -426,7 +449,9 @@ export default function App() {
         headers: {
           [csrf.headerName]: csrf.token,
           'Idempotency-Key': checkoutKey.current,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ deliveryRecipient, deliveryAddress, deliveryPhone, deliveryNote, paymentMethod }),
       })
       const order = await readResponse<Order>(response)
       checkoutKey.current = null
@@ -475,6 +500,22 @@ export default function App() {
     }
   }
 
+  async function updateOrderField(orderId: string, field: 'payment-status' | 'delivery-status', status: string) {
+    setOrderError('')
+    try {
+      const csrf = await loadCsrf()
+      const response = await fetch(`/api/admin/orders/${orderId}/${field}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+        body: JSON.stringify({ status }),
+      })
+      const updated = await readResponse<Order>(response)
+      setOrders((current) => current.map((order) => order.id === updated.id ? updated : order))
+    } catch (error) {
+      setOrderError(error instanceof Error ? error.message : 'Could not update this order.')
+    }
+  }
+
   function formatProductPrice(product: Product) {
     try {
       return new Intl.NumberFormat('en-LK', {
@@ -504,6 +545,7 @@ export default function App() {
           </a>
           <nav className="main-nav" aria-label="Main navigation">
             <a href="/" aria-current={page === 'home' ? 'page' : undefined}>Home</a>
+            {currentUser?.role === 'ADMIN' && <a href="/admin" aria-current={page === 'admin' ? 'page' : undefined}>Dashboard</a>}
             <a href="/catalog" aria-current={page === 'catalog' ? 'page' : undefined}>Catalog</a>
             {currentUser && <a href="/orders" aria-current={page === 'orders' ? 'page' : undefined}>Orders</a>}
             {currentUser?.role === 'CUSTOMER' && <a href="/cart" aria-current={page === 'cart' ? 'page' : undefined}>Cart <span className="cart-count">{cart.totalQuantity}</span></a>}
@@ -537,7 +579,7 @@ export default function App() {
                 <p className="hero-description">Find the products your team relies on, place orders with confidence, and keep everything in one clear workspace.</p>
                 <div className="hero-actions">
                   <a className="primary-button" href="/catalog">Browse catalog <span aria-hidden="true">→</span></a>
-                  <a className="link-button" href={currentUser ? '/orders' : '/login'}>{currentUser ? 'View your orders' : 'Already have an account? Log in'}</a>
+                  <a className="link-button" href={currentUser?.role === 'ADMIN' ? '/admin' : currentUser ? '/orders' : '/login'}>{currentUser ? 'Open your workspace' : 'Already have an account? Log in'}</a>
                 </div>
               </div>
               <div className="hero-process" aria-label="How SupplyCart works">
@@ -611,6 +653,29 @@ export default function App() {
         {(page === 'cart' || page === 'orders') && sessionLoading && <p className="loading-note" role="status">Loading your workspace…</p>}
         {(page === 'cart' || page === 'orders') && !sessionLoading && !currentUser && (
           <section className="access-panel"><p className="eyebrow">Your workspace</p><h1>Log in to continue.</h1><p>Your catalog, cart, and orders are ready when you are.</p><div className="hero-actions"><a className="primary-button" href="/login">Log in <span aria-hidden="true">→</span></a><a className="link-button" href="/signup">Create an account</a></div></section>
+        )}
+
+        {page === 'admin' && sessionLoading && <p className="loading-note" role="status">Loading your admin workspace…</p>}
+        {page === 'admin' && !sessionLoading && currentUser?.role !== 'ADMIN' && (
+          <section className="access-panel"><p className="eyebrow">Restricted workspace</p><h1>Administrator access required.</h1><p>Sign in with an administrator account to manage catalog, payments, and fulfilment.</p><a className="primary-button" href="/login">Log in</a></section>
+        )}
+        {page === 'admin' && currentUser?.role === 'ADMIN' && (
+          <section className="admin-dashboard" aria-labelledby="admin-dashboard-title">
+            <div className="admin-dashboard__hero">
+              <div><p className="eyebrow">Operations workspace</p><h1 id="admin-dashboard-title">Welcome back, {currentUser.fullName}.</h1><p>Keep the catalog current and move every customer order through payment and delivery.</p></div>
+              <a className="primary-button" href="/catalog">Manage products</a>
+            </div>
+            <div className="admin-dashboard__stats" aria-label="Current operations summary">
+              <article><span>Catalog items</span><strong>{products.length}</strong><small>Shown on the current catalog page</small></article>
+              <article><span>New orders</span><strong>{orders.filter((order) => order.status === 'PLACED').length}</strong><small>Waiting to be processed</small></article>
+              <article><span>Delivery queue</span><strong>{orders.filter((order) => order.deliveryStatus !== 'DELIVERED' && order.deliveryStatus !== 'CANCELLED').length}</strong><small>Orders still in fulfilment</small></article>
+              <article><span>Pending payments</span><strong>{orders.filter((order) => order.paymentStatus === 'PENDING').length}</strong><small>Need payment confirmation</small></article>
+            </div>
+            <div className="admin-dashboard__actions">
+              <a href="/catalog"><strong>Catalog management</strong><span>Add products, update images, price, stock, and availability.</span></a>
+              <a href="/orders"><strong>Order fulfilment</strong><span>Confirm payments, prepare deliveries, dispatch, and complete orders.</span></a>
+            </div>
+          </section>
         )}
 
       {page === 'catalog' && (
@@ -796,6 +861,15 @@ export default function App() {
                   <span>Subtotal</span>
                   <strong>{formatAmount(cart.subtotal, cart.currencyCode ?? 'LKR')}</strong>
                 </div>
+                <section className="checkout-details" aria-labelledby="checkout-details-title">
+                  <div><p className="eyebrow">Delivery & payment</p><h3 id="checkout-details-title">Complete your order</h3></div>
+                  <label>Recipient name<input required maxLength={120} value={deliveryRecipient} onChange={(event) => setDeliveryRecipient(event.target.value)} placeholder="Name for delivery" /></label>
+                  <label>Delivery address<textarea required maxLength={500} rows={3} value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="Business name, street, city" /></label>
+                  <label>Phone number<input maxLength={30} value={deliveryPhone} onChange={(event) => setDeliveryPhone(event.target.value)} placeholder="Optional contact number" /></label>
+                  <label>Delivery note<input maxLength={500} value={deliveryNote} onChange={(event) => setDeliveryNote(event.target.value)} placeholder="Optional access or timing note" /></label>
+                  <label>Payment method<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as Order['paymentMethod'])}><option value="BANK_TRANSFER">Bank transfer</option><option value="CASH_ON_DELIVERY">Cash on delivery</option></select></label>
+                  <p className="field-hint">No card information is collected or stored by SupplyCart.</p>
+                </section>
                 <button className="primary-button" type="button" onClick={checkout} disabled={checkoutLoading || cart.items.some((item) => !item.active || item.quantity > item.availableQuantity)}>
                   {checkoutLoading ? 'Placing order...' : 'Place order'}
                 </button>
@@ -825,6 +899,7 @@ export default function App() {
                       <span className={`order-status order-status--${order.status.toLowerCase()}`}>{order.status.toLowerCase()}</span>
                     </div>
                     <ul>{order.items.map((item) => <li key={item.productId}>{item.quantity} × {item.productName} <span>{formatAmount(item.lineTotal, order.currencyCode)}</span></li>)}</ul>
+                    <div className="order-fulfilment"><span>Payment: {order.paymentMethod.replaceAll('_', ' ').toLowerCase()} · {order.paymentStatus.toLowerCase()}</span><span>Delivery: {order.deliveryStatus.toLowerCase()}</span><span>{order.deliveryRecipient} · {order.deliveryAddress}</span></div>
                     <div className="cart-summary"><span>Total</span><strong>{formatAmount(order.totalAmount, order.currencyCode)}</strong></div>
                   </article>
                 ))}
@@ -854,8 +929,14 @@ export default function App() {
                     <span className={`order-status order-status--${order.status.toLowerCase()}`}>{order.status.toLowerCase()}</span>
                   </div>
                   <ul>{order.items.map((item) => <li key={item.productId}>{item.quantity} × {item.productName} <span>{formatAmount(item.lineTotal, order.currencyCode)}</span></li>)}</ul>
+                  <div className="order-fulfilment"><span>Payment: {order.paymentMethod.replaceAll('_', ' ').toLowerCase()} · {order.paymentStatus.toLowerCase()}</span><span>Delivery: {order.deliveryStatus.toLowerCase()}</span><span>{order.deliveryRecipient} · {order.deliveryAddress}</span></div>
                   <div className="order-admin-actions">
                     <strong>{formatAmount(order.totalAmount, order.currencyCode)}</strong>
+                    {order.paymentStatus === 'PENDING' && <button className="text-button" type="button" onClick={() => updateOrderField(order.id, 'payment-status', 'PAID')}>Mark paid</button>}
+                    {order.paymentStatus === 'PAID' && <button className="text-button" type="button" onClick={() => updateOrderField(order.id, 'payment-status', 'REFUNDED')}>Refund payment</button>}
+                    {order.deliveryStatus === 'PENDING' && <button className="text-button" type="button" onClick={() => updateOrderField(order.id, 'delivery-status', 'PREPARING')}>Prepare delivery</button>}
+                    {order.deliveryStatus === 'PREPARING' && <button className="text-button" type="button" onClick={() => updateOrderField(order.id, 'delivery-status', 'DISPATCHED')}>Mark dispatched</button>}
+                    {order.deliveryStatus === 'DISPATCHED' && <button className="text-button" type="button" onClick={() => updateOrderField(order.id, 'delivery-status', 'DELIVERED')}>Mark delivered</button>}
                     {order.status === 'PLACED' && <button className="text-button" type="button" onClick={() => updateOrderStatus(order.id, 'PROCESSING')}>Start processing</button>}
                     {order.status === 'PROCESSING' && <button className="text-button" type="button" onClick={() => updateOrderStatus(order.id, 'COMPLETED')}>Mark completed</button>}
                     {(order.status === 'PLACED' || order.status === 'PROCESSING') && <button className="text-button order-cancel" type="button" onClick={() => updateOrderStatus(order.id, 'CANCELLED')}>Cancel and restock</button>}

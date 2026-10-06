@@ -131,15 +131,16 @@ Checkout rechecks product status, price and stock inside a database transaction,
 
 After a successful database commit, the API publishes an idempotent Kafka event to `supplycart.order-events.v1`, keyed by order ID. `ORDER_CREATED` and `ORDER_STATUS_CHANGED` events let notification, analytics or warehouse consumers work independently without adding latency to checkout. Kafka publishing is disabled by default when running the API directly and enabled in Docker Compose. If Kafka is temporarily unavailable, the already-committed checkout remains successful and the publish failure is logged; a transactional outbox should be added before using these events for irreversible external actions.
 
-Customers can review up to 50 recent orders. Admins can set product stock (0–10,000,000), inspect up to 100 recent orders and move orders through `PLACED → PROCESSING → COMPLETED`. Admins can cancel `PLACED` or `PROCESSING` orders; cancellation restores the reserved stock in the same transaction. Completed and cancelled orders are terminal. Payments, shipping and automated fulfillment are not implemented.
+At checkout, customers select bank transfer or cash on delivery and provide the delivery recipient, address and optional contact/note. No card information is collected or stored. Customers can review up to 50 recent orders. Admins can set product stock (0–10,000,000), inspect up to 100 recent orders and move orders through `PLACED → PROCESSING → COMPLETED`. Admins can cancel `PLACED` or `PROCESSING` orders; cancellation restores the reserved stock in the same transaction. Admins also track payment as `PENDING → PAID → REFUNDED` (or `PENDING → FAILED`) and delivery as `PENDING → PREPARING → DISPATCHED → DELIVERED`. Completed and cancelled orders are terminal. A real payment-gateway integration and automated courier fulfilment are not implemented.
 
 Key API routes (cart and customer orders require the `CUSTOMER` role; admin routes require `ADMIN`):
 
 - `GET /api/cart`, `POST /api/cart/items`, `PUT /api/cart/items/{productId}`, `DELETE /api/cart/items/{productId}` — retrieve and update the current cart.
-- `POST /api/orders/checkout` — place an order with the `Idempotency-Key` request header.
+- `POST /api/orders/checkout` — place an order with the `Idempotency-Key` request header and delivery/payment details.
 - `GET /api/orders` and `GET /api/orders/{orderId}` — see only the signed-in customer's orders.
 - `PATCH /api/admin/products/{id}/stock` — set stock with `{"quantity": 25}`.
 - `GET /api/admin/orders` and `PATCH /api/admin/orders/{orderId}/status` — review and transition recent orders.
+- `PATCH /api/admin/orders/{orderId}/payment-status` and `PATCH /api/admin/orders/{orderId}/delivery-status` — update payment and delivery workflow status.
 
 ## Run the frontend
 
@@ -171,4 +172,4 @@ GitHub Actions runs backend verification, frontend typecheck/build, Compose conf
 
 ## Current scope and limitations
 
-Payment, shipping and AI integration are not implemented yet. Account email verification and password recovery are deferred. There are no real payments or production credentials.
+AI integration, real payment-gateway processing, and automated courier integration are not implemented yet. Account email verification and password recovery are deferred. There are no production payment credentials in this repository.
