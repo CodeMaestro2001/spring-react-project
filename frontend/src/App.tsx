@@ -32,6 +32,7 @@ type Product = {
   sku: string
   name: string
   description: string | null
+  imageUrl: string | null
   category: string
   unit: string
   price: number
@@ -93,6 +94,7 @@ type ProductDraft = {
   sku: string
   name: string
   description: string
+  imageUrl: string
   category: string
   unit: string
   price: string
@@ -103,6 +105,7 @@ const emptyProductDraft: ProductDraft = {
   sku: '',
   name: '',
   description: '',
+  imageUrl: '',
   category: '',
   unit: 'case',
   price: '',
@@ -317,6 +320,7 @@ export default function App() {
       sku: product.sku,
       name: product.name,
       description: product.description ?? '',
+      imageUrl: product.imageUrl ?? '',
       category: product.category,
       unit: product.unit,
       price: String(product.price),
@@ -668,6 +672,7 @@ export default function App() {
               <label>Unit (e.g. case, kg)<input required maxLength={32} value={productDraft.unit} onChange={(event) => setProductDraft({ ...productDraft, unit: event.target.value })} /></label>
               <label>Price<input required type="number" min="0.01" step="0.01" value={productDraft.price} onChange={(event) => setProductDraft({ ...productDraft, price: event.target.value })} /></label>
               <label>Currency code<input required minLength={3} maxLength={3} pattern="[A-Za-z]{3}" value={productDraft.currencyCode} onChange={(event) => setProductDraft({ ...productDraft, currencyCode: event.target.value.toUpperCase() })} /></label>
+              <label className="product-description">Image URL (HTTPS)<input type="url" maxLength={500} placeholder="https://example.com/product.jpg" value={productDraft.imageUrl} onChange={(event) => setProductDraft({ ...productDraft, imageUrl: event.target.value })} /></label>
               <label className="product-description">Description<textarea maxLength={2000} rows={3} value={productDraft.description} onChange={(event) => setProductDraft({ ...productDraft, description: event.target.value })} /></label>
               <button className="primary-button" type="submit" disabled={productSaving}>{productSaving ? 'Saving…' : 'Save product'}</button>
             </form>
@@ -681,7 +686,7 @@ export default function App() {
             <div className="product-grid">
               {products.map((product) => (
                 <article className={`product-card${product.active ? '' : ' product-card--inactive'}`} key={product.id}>
-                  <div className="product-art" aria-hidden="true">{product.category.slice(0, 1).toUpperCase()}</div>
+                  <div className="product-art">{product.imageUrl ? <img src={product.imageUrl} alt={product.name} /> : <span aria-hidden="true">{product.category.slice(0, 1).toUpperCase()}</span>}</div>
                   <div className="product-card-content">
                     <div className="product-card-meta"><span>{product.category}</span><span>{product.sku}</span></div>
                     <h3>{product.name}</h3>

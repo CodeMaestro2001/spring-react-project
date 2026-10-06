@@ -35,6 +35,9 @@ public class Product {
     @Column(length = 2000)
     private String description;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Column(nullable = false, length = 80)
     private String category;
 
@@ -61,14 +64,15 @@ public class Product {
 
     public Product(String sku, String name, String description, String category, String unit,
                    BigDecimal price, String currencyCode) {
-        update(sku, name, description, category, unit, price, currencyCode);
+        update(sku, name, description, null, category, unit, price, currencyCode);
     }
 
-    public void update(String sku, String name, String description, String category, String unit,
+    public void update(String sku, String name, String description, String imageUrl, String category, String unit,
                        BigDecimal price, String currencyCode) {
         this.sku = sku;
         this.name = name.trim();
         this.description = description == null || description.isBlank() ? null : description.trim();
+        this.imageUrl = imageUrl == null || imageUrl.isBlank() ? null : imageUrl.trim();
         this.category = category.trim();
         this.unit = unit.trim();
         this.price = price;

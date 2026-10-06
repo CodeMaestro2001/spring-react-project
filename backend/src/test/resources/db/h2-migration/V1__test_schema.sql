@@ -19,6 +19,7 @@ CREATE TABLE product (
     sku VARCHAR(64) NOT NULL,
     name VARCHAR(160) NOT NULL,
     description VARCHAR(2000),
+    image_url VARCHAR(500),
     category VARCHAR(80) NOT NULL,
     unit VARCHAR(32) NOT NULL,
     price NUMERIC(12, 2) NOT NULL,

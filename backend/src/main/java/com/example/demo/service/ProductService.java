@@ -65,7 +65,7 @@ public class ProductService {
         }
         try {
             return ProductResponse.from(productRepository.saveAndFlush(new Product(sku, request.name(),
-                    request.description(), request.category(), request.unit(), request.price(), request.currencyCode())));
+                    request.description(), request.imageUrl(), request.category(), request.unit(), request.price(), request.currencyCode())));
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateSkuException();
         }
@@ -79,7 +79,7 @@ public class ProductService {
         if (productRepository.existsBySkuAndIdNot(sku, id)) {
             throw new DuplicateSkuException();
         }
-        product.update(sku, request.name(), request.description(), request.category(), request.unit(),
+        product.update(sku, request.name(), request.description(), request.imageUrl(), request.category(), request.unit(),
                 request.price(), request.currencyCode());
         try {
             return ProductResponse.from(productRepository.saveAndFlush(product));
