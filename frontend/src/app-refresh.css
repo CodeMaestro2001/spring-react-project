@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Shared fresh-market visual language for all pages. */
+:root { color: #18241c; background: #f5f7f3; }
+body { background: radial-gradient(circle at 90% 0%, #e7f3e4 0, transparent 25rem), #f5f7f3; }
+.site-header { border: 0; background: #103b28f2; box-shadow: 0 4px 20px #0d291b23; }
+.header-inner { width: min(1360px, calc(100% - 48px)); min-height: 76px; }
+.brand { color: #fff; font-size: 21px; }
+.brand-mark { width: 36px; height: 36px; border-radius: 11px 11px 11px 4px; background: #d9f05c; color: #123b28; }
+.main-nav { gap: 8px; margin-left: 22px; }
+.main-nav a { padding: 9px 13px; color: #d9ebe0; border-radius: 999px; }
+.main-nav a:hover, .main-nav a[aria-current='page'] { color: #133b28; background: #e7f4e5; }
+.cart-count { background: #d9f05c; color: #163a29; }
+.account-name { color: #d9ebe0; }
+.header-login { color: #e3f0e8; }
+.header-signup { border-radius: 10px; color: #113a28; background: #d9f05c; }
+.header-signout { border: 1px solid #719783; border-radius: 9px; color: #e4f0e8; }
+.page-shell { width: min(1360px, calc(100% - 48px)); padding-top: 34px; }
+
+.home-hero { position: relative; grid-template-columns: 1.15fr .75fr; min-height: 545px; padding: clamp(36px, 6vw, 82px); border: 0; border-radius: 28px; background: linear-gradient(124deg, #163f2c 0%, #1d6a43 55%, #89b965 100%); box-shadow: 0 20px 45px #143c2928; }
+.home-hero::after { position: absolute; right: -4rem; bottom: -7rem; width: 26rem; height: 26rem; border: 1px solid #ffffff52; border-radius: 50%; content: ''; }
+.hero-copy { position: relative; z-index: 1; }
+.home-hero .eyebrow { color: #d9f05c; }
+.home-hero h1 { max-width: 700px; color: #fff; font-size: clamp(43px, 5.4vw, 72px); }
+.hero-description { color: #d6eade; font-size: 17px; }
+.home-hero .primary-button { border-radius: 12px; color: #123b28; background: #d9f05c; box-shadow: none; }
+.home-hero .link-button { color: #fff; }
+.hero-process { position: relative; z-index: 1; border: 1px solid #ffffff42; border-radius: 18px; background: #ffffffeb; box-shadow: 0 18px 32px #103b2829; }
+.process-label { color: #347b50; }
+.process-step span { color: #2c8151; }
+.process-step h2 { font-size: 16px; }
+.home-benefits { padding: 76px 8px; }
+.section-heading h2 { font-family: 'DM Sans', Arial, sans-serif; font-size: clamp(30px, 3.7vw, 45px); }
+.benefit-grid article { min-height: 200px; border: 1px solid #e0e9de; border-radius: 18px; box-shadow: 0 10px 24px #193d2010; }
+.benefit-grid article:first-child { background: #edf7e9; }.benefit-grid article:nth-child(2) { background: #fff9e9; }.benefit-grid article:nth-child(3) { background: #ebf4f8; }
+
+.auth-layout { max-width: 1120px; min-height: 620px; margin: 22px auto; border: 0; border-radius: 24px; box-shadow: 0 18px 42px #1d3d221b; }
+.auth-intro { background: linear-gradient(150deg, #113d29, #287c4d); }.auth-intro h1 { font-size: clamp(38px, 4vw, 56px); }
+.auth-panel { background: #fff; }.auth-heading h2, .signed-in-state h2 { font-family: 'DM Sans', Arial, sans-serif; font-size: 34px; }
+.auth-form input { border-radius: 10px; background: #fbfdfb; }.auth-submit { border-radius: 10px; }
+
+.cart-section, .orders-section { max-width: 980px; border: 0; border-radius: 22px; box-shadow: 0 14px 30px #183c2010; }
+.cart-line { padding: 20px 6px; }.cart-line-copy strong { font-size: 15px; }.cart-line-actions { padding: 6px; border-radius: 10px; background: #f0f6ee; }.cart-line-actions > button:not(.text-button) { border-radius: 8px; }.cart-summary { margin: 22px 0; padding: 18px; border-radius: 12px; background: #f3f8f1; font-size: 15px; }
+.cart-section > .primary-button { min-width: 190px; border-radius: 10px; }
+.order-list { gap: 16px; }.order-card { padding: 21px; border-radius: 15px; box-shadow: 0 5px 14px #173a200c; }.order-card-heading strong { font-size: 14px; }.order-status { padding: 7px 11px; font-size: 10px; }.order-card li { padding: 4px 0; font-size: 12px; }.admin-orders-section { max-width: 1180px; }
+
+.foundation-grid { padding: 58px 0 34px; }.foundation-item { padding: 10px; }.item-icon { width: 38px; height: 38px; border-radius: 11px; }.page-footer { padding: 28px 4px 42px; color: #66746a; }
+@media (max-width: 760px) { .site-header { position: static; }.header-inner, .page-shell { width: min(100% - 28px, 640px); }.main-nav { margin-left: 0; }.home-hero { grid-template-columns: 1fr; min-height: auto; padding: 36px 26px; border-radius: 20px; }.home-hero h1 { font-size: 43px; }.hero-process { padding: 20px; }.home-benefits { padding: 55px 2px; }.auth-layout { border-radius: 18px; }.cart-section, .orders-section { border-radius: 16px; } }
