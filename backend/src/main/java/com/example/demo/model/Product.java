@@ -64,7 +64,12 @@ public class Product {
 
     public Product(String sku, String name, String description, String category, String unit,
                    BigDecimal price, String currencyCode) {
-        update(sku, name, description, null, category, unit, price, currencyCode);
+        this(sku, name, description, null, category, unit, price, currencyCode);
+    }
+
+    public Product(String sku, String name, String description, String imageUrl, String category, String unit,
+                   BigDecimal price, String currencyCode) {
+        update(sku, name, description, imageUrl, category, unit, price, currencyCode);
     }
 
     public void update(String sku, String name, String description, String imageUrl, String category, String unit,
