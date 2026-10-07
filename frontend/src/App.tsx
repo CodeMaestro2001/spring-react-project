@@ -661,19 +661,31 @@ export default function App() {
         )}
         {page === 'admin' && currentUser?.role === 'ADMIN' && (
           <section className="admin-dashboard" aria-labelledby="admin-dashboard-title">
-            <div className="admin-dashboard__hero">
-              <div><p className="eyebrow">Operations workspace</p><h1 id="admin-dashboard-title">Welcome back, {currentUser.fullName}.</h1><p>Keep the catalog current and move every customer order through payment and delivery.</p></div>
-              <a className="primary-button" href="/catalog">Manage products</a>
-            </div>
-            <div className="admin-dashboard__stats" aria-label="Current operations summary">
-              <article><span>Catalog items</span><strong>{products.length}</strong><small>Shown on the current catalog page</small></article>
-              <article><span>New orders</span><strong>{orders.filter((order) => order.status === 'PLACED').length}</strong><small>Waiting to be processed</small></article>
-              <article><span>Delivery queue</span><strong>{orders.filter((order) => order.deliveryStatus !== 'DELIVERED' && order.deliveryStatus !== 'CANCELLED').length}</strong><small>Orders still in fulfilment</small></article>
-              <article><span>Pending payments</span><strong>{orders.filter((order) => order.paymentStatus === 'PENDING').length}</strong><small>Need payment confirmation</small></article>
-            </div>
-            <div className="admin-dashboard__actions">
-              <a href="/catalog"><strong>Catalog management</strong><span>Add products, update images, price, stock, and availability.</span></a>
-              <a href="/orders"><strong>Order fulfilment</strong><span>Confirm payments, prepare deliveries, dispatch, and complete orders.</span></a>
+            <header className="admin-dashboard__header">
+              <div><h1 id="admin-dashboard-title">Dashboard</h1><p>Welcome, {currentUser.fullName}. Here is what needs attention today.</p></div>
+              <a className="primary-button" href="/catalog">Add product</a>
+            </header>
+            <div className="admin-dashboard__layout">
+              <aside className="admin-dashboard__menu" aria-label="Admin menu">
+                <span>ADMIN MENU</span>
+                <a href="/admin" aria-current="page">Dashboard</a>
+                <a href="/catalog">Products</a>
+                <a href="/orders">Orders</a>
+                <a href="/orders">Payments</a>
+                <a href="/orders">Deliveries</a>
+              </aside>
+              <div className="admin-dashboard__content">
+                <div className="admin-dashboard__stats" aria-label="Current operations summary">
+                  <article><span>Products</span><strong>{products.length}</strong><small>Current catalog page</small></article>
+                  <article><span>New orders</span><strong>{orders.filter((order) => order.status === 'PLACED').length}</strong><small>Awaiting processing</small></article>
+                  <article><span>Delivery queue</span><strong>{orders.filter((order) => order.deliveryStatus !== 'DELIVERED' && order.deliveryStatus !== 'CANCELLED').length}</strong><small>Open fulfilment</small></article>
+                  <article><span>Pending payments</span><strong>{orders.filter((order) => order.paymentStatus === 'PENDING').length}</strong><small>Needs confirmation</small></article>
+                </div>
+                <div className="admin-dashboard__panels">
+                  <article><h2>Quick actions</h2><a href="/catalog">Manage products</a><a href="/orders">Review customer orders</a><a href="/orders">Update payment and delivery</a></article>
+                  <article><h2>Today&apos;s workflow</h2><p>Start with new orders, confirm payment, then prepare and dispatch deliveries.</p><a className="text-button" href="/orders">Open order management</a></article>
+                </div>
+              </div>
             </div>
           </section>
         )}
